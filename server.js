@@ -1,6 +1,8 @@
 import express from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 import {
   getLikes,
   addLike,
@@ -11,11 +13,15 @@ import {
 } from "./db.js";
 import { pickRandomWord, pickRandomWords } from "./words.js";
 
-dotenv.config({ override: true });
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Load .env and serve static files by absolute path so the app works no matter
+// which working directory it's launched from (e.g. the preview panel).
+dotenv.config({ path: path.join(__dirname, ".env"), override: true });
 
 const app = express();
 app.use(express.json());
-app.use(express.static("public"));
+app.use(express.static(path.join(__dirname, "public")));
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
