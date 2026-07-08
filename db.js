@@ -42,7 +42,7 @@ export function addLike(idea) {
     description: idea.description ?? "",
     businessType: idea.businessType ?? "",
     location: idea.location ?? "",
-    codeMedium: idea.codeMedium ?? "",
+    medium: idea.medium ?? idea.codeMedium ?? "",
     market: idea.market ?? "",
     createdAt: new Date().toISOString(),
   };

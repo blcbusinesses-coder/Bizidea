@@ -110,7 +110,7 @@ function ideaRow(idea, heart) {
   tr.appendChild(cell(idea.description, "desc"));
   tr.appendChild(pillCell(idea.businessType));
   tr.appendChild(pillCell(idea.location));
-  tr.appendChild(pillCell(idea.codeMedium));
+  tr.appendChild(pillCell(idea.medium ?? idea.codeMedium ?? ""));
   tr.appendChild(pillCell(idea.market));
   return tr;
 }
@@ -123,7 +123,7 @@ async function generate() {
   const filters = {
     businessType: fType.value,
     location: fLocation.value,
-    codeMedium: fMedium.value,
+    medium: fMedium.value,
     market: fMarket.value,
   };
 

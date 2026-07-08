@@ -27,7 +27,44 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const TYPES = ["Ecommerce", "Service", "Info", "Code"];
 const LOCATIONS = ["In person", "Online"];
-const MEDIUMS = ["AI agent", "Mobile app", "SaaS", "API or MCP", "Other"];
+// Broad set of delivery/monetization mediums across every kind of business —
+// code and non-code alike. Keep in sync with the dropdown in public/index.html.
+const MEDIUMS = [
+  "SaaS",
+  "Web app",
+  "Mobile app",
+  "AI agent",
+  "API or MCP",
+  "Marketplace",
+  "Subscription box",
+  "Physical product",
+  "Handmade goods",
+  "Print-on-demand",
+  "Dropshipping",
+  "Wholesale",
+  "Rental",
+  "Brick-and-mortar store",
+  "Pop-up shop",
+  "Vending",
+  "Franchise",
+  "On-site service",
+  "Consulting",
+  "Coaching",
+  "Agency",
+  "Freelance service",
+  "Event",
+  "Workshop",
+  "Online course",
+  "Membership",
+  "Newsletter",
+  "Content channel",
+  "Community",
+  "Licensing",
+  "Ad-supported",
+  "Affiliate",
+  "DIY kit",
+  "Other",
+];
 const MARKETS = ["B2B", "B2D", "B2C", "B2AI"];
 
 function clamp(value, min, max, fallback) {
@@ -42,28 +79,15 @@ function normalizeFilters(raw = {}) {
   return {
     businessType: pick(raw.businessType, TYPES),
     location: pick(raw.location, LOCATIONS),
-    codeMedium: pick(raw.codeMedium, MEDIUMS),
+    medium: pick(raw.medium, MEDIUMS),
     market: pick(raw.market, MARKETS),
   };
 }
 
 function buildIdeaSchema(filters) {
-  let typeEnum = filters.businessType !== "Any" ? [filters.businessType] : [...TYPES];
-  let mediumEnum;
-
-  if (filters.codeMedium !== "Any") {
-    // A specific medium only makes sense for Code businesses.
-    typeEnum = ["Code"];
-    mediumEnum = [filters.codeMedium];
-  } else if (filters.businessType === "Code") {
-    mediumEnum = [...MEDIUMS];
-  } else if (filters.businessType !== "Any") {
-    mediumEnum = ["N/A"];
-  } else {
-    mediumEnum = [...MEDIUMS, "N/A"];
-  }
-
+  const typeEnum = filters.businessType !== "Any" ? [filters.businessType] : [...TYPES];
   const locationEnum = filters.location !== "Any" ? [filters.location] : [...LOCATIONS];
+  const mediumEnum = filters.medium !== "Any" ? [filters.medium] : [...MEDIUMS];
   const marketEnum = filters.market !== "Any" ? [filters.market] : [...MARKETS];
 
   return {
@@ -73,14 +97,15 @@ function buildIdeaSchema(filters) {
       description: { type: "string", description: "3-4 sentences explaining the business." },
       businessType: { type: "string", enum: typeEnum },
       location: { type: "string", enum: locationEnum },
-      codeMedium: {
+      medium: {
         type: "string",
-        description: "The medium/interface for Code businesses, otherwise 'N/A'.",
+        description:
+          "The primary medium / format / business model through which the business delivers or monetizes.",
         enum: mediumEnum,
       },
       market: { type: "string", enum: marketEnum },
     },
-    required: ["name", "description", "businessType", "location", "codeMedium", "market"],
+    required: ["name", "description", "businessType", "location", "medium", "market"],
     additionalProperties: false,
   };
 }
@@ -119,7 +144,7 @@ function buildPrompt(seedWords, perWord, filters) {
     `For EACH seed word, brainstorm exactly ${perWord} distinct business idea(s) inspired by that word. That is ${seedWords.length} groups, each with ${perWord} ideas. Use each seed word verbatim as its group's "word".`
   );
   lines.push(
-    `For each idea provide: a short catchy name; a 3-4 sentence description; a business type; whether it is in person or online; the code medium/interface; and the target market.`
+    `For each idea provide: a short catchy name; a 3-4 sentence description; a business type; whether it is in person or online; the medium; and the target market.`
   );
 
   const hard = [];
@@ -127,10 +152,8 @@ function buildPrompt(seedWords, perWord, filters) {
     hard.push(`- Every business MUST be of type "${filters.businessType}".`);
   if (filters.location !== "Any")
     hard.push(`- Every business MUST be "${filters.location}".`);
-  if (filters.codeMedium !== "Any")
-    hard.push(
-      `- Every business MUST be a Code business whose medium/interface is "${filters.codeMedium}".`
-    );
+  if (filters.medium !== "Any")
+    hard.push(`- Every business MUST use the "${filters.medium}" medium.`);
   if (filters.market !== "Any")
     hard.push(`- Every business MUST target the "${filters.market}" market.`);
   if (hard.length) {
@@ -140,7 +163,9 @@ function buildPrompt(seedWords, perWord, filters) {
 
   lines.push(`Reference: business type is one of Ecommerce, Service, Info, Code.`);
   lines.push(
-    `Code medium (only for Code businesses; use "N/A" for all non-Code businesses) is one of AI agent, Mobile app, SaaS, API or MCP, Other.`
+    `Medium is the primary delivery/monetization model. Choose the single best fit from: ${MEDIUMS.join(
+      ", "
+    )}.`
   );
   lines.push(`Market: B2B (business), B2D (developer), B2C (consumer), B2AI (AI).`);
   lines.push(`Make the ideas creative and varied.`);
