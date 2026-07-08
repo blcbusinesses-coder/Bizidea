@@ -2,7 +2,6 @@ const wordsInput = document.getElementById("words");
 const perWordInput = document.getElementById("perWord");
 const fType = document.getElementById("f-type");
 const fLocation = document.getElementById("f-location");
-const fMedium = document.getElementById("f-medium");
 const fMarket = document.getElementById("f-market");
 const generateBtn = document.getElementById("generate");
 const totalHint = document.getElementById("total-hint");
@@ -37,6 +36,69 @@ function pillCell(text) {
   td.appendChild(span);
   return td;
 }
+
+/* ---------- Medium multi-select ---------- */
+
+const MEDIUMS = [
+  "SaaS", "Web app", "Mobile app", "AI agent", "API or MCP", "Marketplace",
+  "Subscription box", "Physical product", "Handmade goods", "Print-on-demand",
+  "Dropshipping", "Wholesale", "Rental", "Brick-and-mortar store", "Pop-up shop",
+  "Vending", "Franchise", "On-site service", "Consulting", "Coaching", "Agency",
+  "Freelance service", "Event", "Workshop", "Online course", "Membership",
+  "Newsletter", "Content channel", "Community", "Licensing", "Ad-supported",
+  "Affiliate", "DIY kit", "Other",
+];
+
+const mediumMs = document.getElementById("medium-ms");
+const mediumToggle = document.getElementById("medium-toggle");
+const mediumPanel = document.getElementById("medium-panel");
+const mediumOptions = document.getElementById("medium-options");
+const mediumSummary = document.getElementById("medium-summary");
+const mediumClear = document.getElementById("medium-clear");
+
+for (const m of MEDIUMS) {
+  const label = document.createElement("label");
+  label.className = "ms-option";
+  const cb = document.createElement("input");
+  cb.type = "checkbox";
+  cb.value = m;
+  cb.addEventListener("change", updateMediumLabel);
+  label.appendChild(cb);
+  label.appendChild(document.createTextNode(" " + m));
+  mediumOptions.appendChild(label);
+}
+
+function selectedMediums() {
+  return [...mediumOptions.querySelectorAll("input:checked")].map((c) => c.value);
+}
+
+function updateMediumLabel() {
+  const sel = selectedMediums();
+  if (sel.length === 0) {
+    mediumToggle.textContent = "Any";
+    mediumSummary.textContent = "Any medium";
+  } else if (sel.length === 1) {
+    mediumToggle.textContent = sel[0];
+    mediumSummary.textContent = "1 selected";
+  } else {
+    mediumToggle.textContent = `${sel.length} selected`;
+    mediumSummary.textContent = `${sel.length} selected`;
+  }
+}
+
+mediumToggle.addEventListener("click", (e) => {
+  e.stopPropagation();
+  mediumPanel.classList.toggle("hidden");
+});
+
+mediumClear.addEventListener("click", () => {
+  mediumOptions.querySelectorAll("input:checked").forEach((c) => (c.checked = false));
+  updateMediumLabel();
+});
+
+document.addEventListener("click", (e) => {
+  if (!mediumMs.contains(e.target)) mediumPanel.classList.add("hidden");
+});
 
 function updateHint() {
   const w = parseInt(wordsInput.value, 10) || 0;
@@ -123,7 +185,7 @@ async function generate() {
   const filters = {
     businessType: fType.value,
     location: fLocation.value,
-    medium: fMedium.value,
+    mediums: selectedMediums(),
     market: fMarket.value,
   };
 

@@ -74,12 +74,18 @@ function clamp(value, min, max, fallback) {
 }
 
 function normalizeFilters(raw = {}) {
-  const pick = (val, allowed) =>
-    allowed.includes(val) ? val : "Any";
+  const pick = (val, allowed) => (allowed.includes(val) ? val : "Any");
+  // mediums is a multi-select: an array of chosen mediums. Empty = Any.
+  const rawMediums = Array.isArray(raw.mediums)
+    ? raw.mediums
+    : raw.medium
+    ? [raw.medium]
+    : [];
+  const mediums = [...new Set(rawMediums.filter((m) => MEDIUMS.includes(m)))];
   return {
     businessType: pick(raw.businessType, TYPES),
     location: pick(raw.location, LOCATIONS),
-    medium: pick(raw.medium, MEDIUMS),
+    mediums,
     market: pick(raw.market, MARKETS),
   };
 }
@@ -87,7 +93,7 @@ function normalizeFilters(raw = {}) {
 function buildIdeaSchema(filters) {
   const typeEnum = filters.businessType !== "Any" ? [filters.businessType] : [...TYPES];
   const locationEnum = filters.location !== "Any" ? [filters.location] : [...LOCATIONS];
-  const mediumEnum = filters.medium !== "Any" ? [filters.medium] : [...MEDIUMS];
+  const mediumEnum = filters.mediums.length ? [...filters.mediums] : [...MEDIUMS];
   const marketEnum = filters.market !== "Any" ? [filters.market] : [...MARKETS];
 
   return {
@@ -152,8 +158,14 @@ function buildPrompt(seedWords, perWord, filters) {
     hard.push(`- Every business MUST be of type "${filters.businessType}".`);
   if (filters.location !== "Any")
     hard.push(`- Every business MUST be "${filters.location}".`);
-  if (filters.medium !== "Any")
-    hard.push(`- Every business MUST use the "${filters.medium}" medium.`);
+  if (filters.mediums.length === 1)
+    hard.push(`- Every business MUST use the "${filters.mediums[0]}" medium.`);
+  else if (filters.mediums.length > 1)
+    hard.push(
+      `- Every business's medium MUST be one of: ${filters.mediums
+        .map((m) => `"${m}"`)
+        .join(", ")}.`
+    );
   if (filters.market !== "Any")
     hard.push(`- Every business MUST target the "${filters.market}" market.`);
   if (hard.length) {
