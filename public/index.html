@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Business Idea Generator</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Business Idea Generator</h1>
+        <p class="subtitle">
+          Spin random words into classified business ideas — filter each column, heart the ones you like.
+        </p>
+        <nav class="tabs">
+          <button id="tab-gen" class="tab active">Generator</button>
+          <button id="tab-game" class="tab">Game</button>
+          <button id="tab-liked" class="tab">
+            <span class="heart">&#9829;</span> Liked <span id="liked-count" class="badge">0</span>
+          </button>
+        </nav>
+      </header>
+
+      <section id="panel-gen">
+        <div class="controls">
+          <div class="control">
+            <label for="words">Words</label>
+            <input type="number" id="words" min="1" max="10" value="2" />
+          </div>
+          <div class="control">
+            <label for="perWord">Ideas / word</label>
+            <input type="number" id="perWord" min="1" max="10" value="5" />
+          </div>
+          <div class="control">
+            <label for="f-type">Type</label>
+            <select id="f-type">
+              <option>Any</option>
+              <option>Ecommerce</option>
+              <option>Service</option>
+              <option>Info</option>
+              <option>Code</option>
+            </select>
+          </div>
+          <div class="control">
+            <label for="f-location">In person / Online</label>
+            <select id="f-location">
+              <option>Any</option>
+              <option>In person</option>
+              <option>Online</option>
+            </select>
+          </div>
+          <div class="control">
+            <label for="f-medium">Code medium</label>
+            <select id="f-medium">
+              <option>Any</option>
+              <option>AI agent</option>
+              <option>Mobile app</option>
+              <option>SaaS</option>
+              <option>API or MCP</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="control">
+            <label for="f-market">Market</label>
+            <select id="f-market">
+              <option>Any</option>
+              <option>B2B</option>
+              <option>B2D</option>
+              <option>B2C</option>
+              <option>B2AI</option>
+            </select>
+          </div>
+          <button id="generate">Generate <span id="total-hint"></span></button>
+        </div>
+
+        <div id="status" class="status"></div>
+
+        <div class="table-wrap">
+          <table id="results" class="hidden">
+            <thead>
+              <tr>
+                <th class="heart-col"></th>
+                <th>Word</th>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Type</th>
+                <th>In person / Online</th>
+                <th>Code medium</th>
+                <th>Market</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="panel-game" class="hidden">
+        <div class="game-card">
+          <div class="game-word-row">
+            <div>
+              <span class="game-label">Your word</span>
+              <div id="game-word" class="game-word">…</div>
+            </div>
+            <button id="new-word" class="ghost-btn">New word</button>
+          </div>
+
+          <label class="game-label" for="game-idea">Your business idea</label>
+          <textarea
+            id="game-idea"
+            placeholder="Pitch a business built around the word above…"
+            rows="4"
+          ></textarea>
+
+          <div class="game-actions">
+            <button id="submit-idea">Submit for rating</button>
+          </div>
+
+          <div id="game-result" class="game-result hidden">
+            <div class="score-row">
+              <div id="score-badge" class="score-badge">–</div>
+              <div class="score-caption">out of 10</div>
+            </div>
+            <div class="result-block">
+              <h3>Feedback</h3>
+              <p id="game-feedback"></p>
+            </div>
+            <div class="result-block">
+              <h3>Next things to think about</h3>
+              <ul id="game-next"></ul>
+            </div>
+            <div class="game-actions">
+              <button id="save-round">Save this round</button>
+              <span id="save-status" class="save-status"></span>
+            </div>
+          </div>
+        </div>
+
+        <h2 class="section-heading">Saved rounds <span id="saved-count" class="badge">0</span></h2>
+        <p id="saved-empty" class="status">No saved rounds yet.</p>
+        <div id="saved-list" class="saved-list"></div>
+      </section>
+
+      <section id="panel-liked" class="hidden">
+        <p id="liked-empty" class="status">
+          No liked ideas yet. Heart some on the Generator tab.
+        </p>
+        <div class="table-wrap">
+          <table id="liked-table" class="hidden">
+            <thead>
+              <tr>
+                <th class="heart-col"></th>
+                <th>Word</th>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Type</th>
+                <th>In person / Online</th>
+                <th>Code medium</th>
+                <th>Market</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
