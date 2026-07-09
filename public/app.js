@@ -107,31 +107,61 @@ function updateHint() {
   totalHint.textContent = total ? `(${total} ideas)` : "";
 }
 
+/* ---------- Local storage (persists on this device) ---------- */
+
+const LIKES_KEY = "biz_likes";
+const GAME_KEY = "biz_game_saves";
+
+function loadStore(key) {
+  try {
+    return JSON.parse(localStorage.getItem(key)) || [];
+  } catch {
+    return [];
+  }
+}
+
+function saveStore(key, data) {
+  localStorage.setItem(key, JSON.stringify(data));
+}
+
+function newId() {
+  return typeof crypto !== "undefined" && crypto.randomUUID
+    ? crypto.randomUUID()
+    : "id-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+}
+
 /* ---------- Likes ---------- */
 
-async function refreshLikedCount() {
-  const res = await fetch("/api/likes");
-  const data = await res.json();
-  likedCount.textContent = data.likes.length;
-  return data.likes;
+function refreshLikedCount() {
+  const likes = loadStore(LIKES_KEY);
+  likedCount.textContent = likes.length;
+  return likes;
 }
 
-async function likeIdea(idea, btn) {
-  const res = await fetch("/api/likes", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(idea),
-  });
-  const saved = await res.json();
+function likeIdea(idea, btn) {
+  const likes = loadStore(LIKES_KEY);
+  const entry = {
+    id: newId(),
+    word: idea.word ?? "",
+    name: idea.name ?? "",
+    description: idea.description ?? "",
+    businessType: idea.businessType ?? "",
+    location: idea.location ?? "",
+    medium: idea.medium ?? idea.codeMedium ?? "",
+    market: idea.market ?? "",
+    createdAt: new Date().toISOString(),
+  };
+  likes.unshift(entry);
+  saveStore(LIKES_KEY, likes);
   btn.classList.add("liked");
-  btn.dataset.likeId = saved.id;
+  btn.dataset.likeId = entry.id;
   btn.title = "Remove from liked";
-  await refreshLikedCount();
+  refreshLikedCount();
 }
 
-async function unlikeById(id) {
-  await fetch(`/api/likes/${id}`, { method: "DELETE" });
-  await refreshLikedCount();
+function unlikeById(id) {
+  saveStore(LIKES_KEY, loadStore(LIKES_KEY).filter((x) => x.id !== id));
+  refreshLikedCount();
 }
 
 function heartCell(idea, { liked = false, likeId = null, onRemove } = {}) {
@@ -326,28 +356,27 @@ async function submitIdea() {
   }
 }
 
-async function saveRound() {
+function saveRound() {
   if (!lastRating) return;
+  const saves = loadStore(GAME_KEY);
+  saves.unshift({
+    id: newId(),
+    word: lastRating.word ?? "",
+    idea: lastRating.idea ?? "",
+    score: lastRating.score ?? null,
+    feedback: lastRating.feedback ?? "",
+    nextSteps: Array.isArray(lastRating.nextSteps) ? lastRating.nextSteps : [],
+    createdAt: new Date().toISOString(),
+  });
+  saveStore(GAME_KEY, saves);
+  saveRoundBtn.textContent = "Saved ✓";
   saveRoundBtn.disabled = true;
-  try {
-    await fetch("/api/game/saves", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(lastRating),
-    });
-    saveRoundBtn.textContent = "Saved ✓";
-    saveStatus.textContent = "";
-    renderSaved();
-  } catch (err) {
-    saveStatus.textContent = `Error: ${err.message}`;
-    saveRoundBtn.disabled = false;
-  }
+  saveStatus.textContent = "";
+  renderSaved();
 }
 
-async function renderSaved() {
-  const res = await fetch("/api/game/saves");
-  const data = await res.json();
-  const saves = data.saves || [];
+function renderSaved() {
+  const saves = loadStore(GAME_KEY);
   savedCount.textContent = saves.length;
   savedList.innerHTML = "";
 
@@ -368,8 +397,8 @@ async function renderSaved() {
     const remove = document.createElement("button");
     remove.className = "remove-link";
     remove.textContent = "Remove";
-    remove.addEventListener("click", async () => {
-      await fetch(`/api/game/saves/${s.id}`, { method: "DELETE" });
+    remove.addEventListener("click", () => {
+      saveStore(GAME_KEY, loadStore(GAME_KEY).filter((x) => x.id !== s.id));
       renderSaved();
     });
     head.appendChild(left);

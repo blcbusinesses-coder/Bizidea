@@ -3,14 +3,6 @@ import Anthropic from "@anthropic-ai/sdk";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
-import {
-  getLikes,
-  addLike,
-  removeLike,
-  getGameSaves,
-  addGameSave,
-  removeGameSave,
-} from "./db.js";
 import { pickRandomWord, pickRandomWords } from "./words.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -284,32 +276,9 @@ Rate the idea from 1 to 10, judging creativity, how well it fits the seed word, 
   }
 });
 
-app.get("/api/game/saves", (req, res) => {
-  res.json({ saves: getGameSaves() });
-});
-
-app.post("/api/game/saves", (req, res) => {
-  res.json(addGameSave(req.body || {}));
-});
-
-app.delete("/api/game/saves/:id", (req, res) => {
-  removeGameSave(req.params.id);
-  res.json({ ok: true });
-});
-
-app.get("/api/likes", (req, res) => {
-  res.json({ likes: getLikes() });
-});
-
-app.post("/api/likes", (req, res) => {
-  const saved = addLike(req.body || {});
-  res.json(saved);
-});
-
-app.delete("/api/likes/:id", (req, res) => {
-  removeLike(req.params.id);
-  res.json({ ok: true });
-});
+// Note: liked ideas and saved game rounds are stored client-side in the
+// browser's localStorage (see public/app.js) so they persist per-device and
+// survive deploys/restarts on hosts with an ephemeral filesystem.
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
