@@ -2,18 +2,26 @@ import express from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import dotenv from "dotenv";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import { pickRandomWord, pickRandomWords } from "./words.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Load .env and serve static files by absolute path so the app works no matter
-// which working directory it's launched from (e.g. the preview panel).
+// Load .env locally (on Vercel the API key comes from project env vars, and
+// there is no .env file — dotenv just no-ops in that case).
 dotenv.config({ path: path.join(__dirname, ".env"), override: true });
+
+// Resolve the public dir robustly: __dirname works locally and in the preview
+// panel; process.cwd() works when bundled into a Vercel serverless function.
+const publicDir =
+  [path.join(__dirname, "public"), path.join(process.cwd(), "public")].find(
+    (p) => fs.existsSync(p)
+  ) || path.join(__dirname, "public");
 
 const app = express();
 app.use(express.json());
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(publicDir));
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -204,6 +212,9 @@ app.post("/api/generate", async (req, res) => {
       max_tokens: Math.min(32000, 4000 + total * 1000),
       thinking: { type: "adaptive" },
       output_config: {
+        // Keep generation fast enough to finish inside serverless time limits
+        // (e.g. Vercel's 60s function cap) for typical batch sizes.
+        effort: "low",
         format: { type: "json_schema", schema: buildSchema(filters) },
       },
       messages: [
@@ -348,7 +359,13 @@ Rate the idea from 1 to 10, judging creativity, how well it fits the seed word, 
 // browser's localStorage (see public/app.js) so they persist per-device and
 // survive deploys/restarts on hosts with an ephemeral filesystem.
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Biz Idea Generator running at http://localhost:${PORT}`);
-});
+// On Vercel the app is imported as a serverless function (see api/index.js),
+// so we only start a listener when running directly (local dev).
+if (!process.env.VERCEL) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`Biz Idea Generator running at http://localhost:${PORT}`);
+  });
+}
+
+export default app;
