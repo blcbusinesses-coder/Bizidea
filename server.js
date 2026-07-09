@@ -208,7 +208,7 @@ app.post("/api/generate", async (req, res) => {
 
   try {
     const stream = client.messages.stream({
-      model: "claude-opus-4-7",
+      model: "claude-sonnet-4-6",
       max_tokens: Math.min(32000, 4000 + total * 1000),
       thinking: { type: "adaptive" },
       output_config: {
@@ -273,10 +273,9 @@ app.post("/api/game/wordinfo", async (req, res) => {
     if (!word) return res.status(400).json({ error: "No word provided." });
 
     const message = await client.messages.create({
-      model: "claude-opus-4-7",
+      model: "claude-haiku-4-5",
       max_tokens: 1200,
       output_config: {
-        effort: "low",
         format: { type: "json_schema", schema: wordInfoSchema },
       },
       messages: [
@@ -327,7 +326,7 @@ app.post("/api/game/rate", async (req, res) => {
     }
 
     const message = await client.messages.create({
-      model: "claude-opus-4-7",
+      model: "claude-sonnet-4-6",
       max_tokens: 4000,
       thinking: { type: "adaptive" },
       output_config: {
