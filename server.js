@@ -177,14 +177,29 @@ function buildPrompt(seedWords, perWord, filters) {
 }
 
 app.post("/api/generate", async (req, res) => {
-  try {
-    const words = clamp(req.body.words, 1, 10, 1);
-    const perWord = clamp(req.body.perWord, 1, 10, 1);
-    const filters = normalizeFilters(req.body.filters);
-    const total = words * perWord;
-    const seedWords = pickRandomWords(words);
+  const words = clamp(req.body.words, 1, 10, 1);
+  const perWord = clamp(req.body.perWord, 1, 10, 1);
+  const filters = normalizeFilters(req.body.filters);
+  const total = words * perWord;
+  const seedWords = pickRandomWords(words);
 
-    const message = await client.messages.create({
+  // Idea generation can take a while for larger batches. We respond as a
+  // Server-Sent Events stream and emit heartbeat comments every few seconds so
+  // proxies / mobile networks don't kill the connection as an idle timeout
+  // before the final result is ready (this was breaking generation on the
+  // deployed site while the shorter game requests worked fine).
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+  const heartbeat = setInterval(() => res.write(": keep-alive\n\n"), 5000);
+  const send = (payload) =>
+    res.write(`event: result\ndata: ${JSON.stringify(payload)}\n\n`);
+
+  try {
+    const stream = client.messages.stream({
       model: "claude-opus-4-7",
       max_tokens: Math.min(32000, 4000 + total * 1000),
       thinking: { type: "adaptive" },
@@ -196,6 +211,7 @@ app.post("/api/generate", async (req, res) => {
       ],
     });
 
+    const message = await stream.finalMessage();
     const block = message.content.find((b) => b.type === "text");
     const parsed = JSON.parse(block.text);
 
@@ -205,10 +221,13 @@ app.post("/api/generate", async (req, res) => {
         ideas.push({ ...idea, word: group.word });
       }
     }
-    res.json({ ideas });
+    send({ ideas });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message || "Generation failed." });
+    send({ error: err.message || "Generation failed." });
+  } finally {
+    clearInterval(heartbeat);
+    res.end();
   }
 });
 

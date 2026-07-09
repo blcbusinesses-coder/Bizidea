@@ -230,9 +230,16 @@ async function generate() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ words, perWord, filters }),
     });
+    if (!res.ok || !res.body) {
+      throw new Error("Server error (" + res.status + ").");
+    }
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Something went wrong.");
+    // The server replies as a Server-Sent Events stream (heartbeats keep the
+    // connection alive during long generations). Read it and pull the single
+    // "result" payload out.
+    const data = await readSseResult(res);
+    if (!data) throw new Error("No response from server.");
+    if (data.error) throw new Error(data.error);
 
     for (const idea of data.ideas) {
       const heart = heartCell(idea);
@@ -246,6 +253,35 @@ async function generate() {
   } finally {
     generateBtn.disabled = false;
   }
+}
+
+async function readSseResult(res) {
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let result = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    const events = buffer.split("\n\n");
+    buffer = events.pop();
+    for (const evt of events) {
+      const dataLine = evt
+        .split("\n")
+        .find((l) => l.startsWith("data:"));
+      if (dataLine) {
+        try {
+          result = JSON.parse(dataLine.slice(5).trim());
+        } catch {
+          /* ignore malformed chunk */
+        }
+      }
+    }
+  }
+  return result;
 }
 
 /* ---------- Liked view ---------- */
