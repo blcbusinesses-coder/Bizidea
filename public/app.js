@@ -11,9 +11,11 @@ const resultsTable = document.getElementById("results");
 const resultsBody = resultsTable.querySelector("tbody");
 
 const tabGen = document.getElementById("tab-gen");
+const tabAdapt = document.getElementById("tab-adapt");
 const tabGame = document.getElementById("tab-game");
 const tabLiked = document.getElementById("tab-liked");
 const panelGen = document.getElementById("panel-gen");
+const panelAdapt = document.getElementById("panel-adapt");
 const panelGame = document.getElementById("panel-game");
 const panelLiked = document.getElementById("panel-liked");
 const likedCount = document.getElementById("liked-count");
@@ -49,56 +51,67 @@ const MEDIUMS = [
   "Affiliate", "DIY kit", "Other",
 ];
 
-const mediumMs = document.getElementById("medium-ms");
-const mediumToggle = document.getElementById("medium-toggle");
-const mediumPanel = document.getElementById("medium-panel");
-const mediumOptions = document.getElementById("medium-options");
-const mediumSummary = document.getElementById("medium-summary");
-const mediumClear = document.getElementById("medium-clear");
+// Reusable medium multi-select. `prefix` matches the element id prefix in the
+// HTML (e.g. "medium" -> #medium-ms, #medium-toggle, ...). Returns a getter for
+// the currently-selected mediums so each tab can have its own instance.
+function createMediumSelect(prefix) {
+  const ms = document.getElementById(`${prefix}-ms`);
+  const toggle = document.getElementById(`${prefix}-toggle`);
+  const panel = document.getElementById(`${prefix}-panel`);
+  const options = document.getElementById(`${prefix}-options`);
+  const summary = document.getElementById(`${prefix}-summary`);
+  const clear = document.getElementById(`${prefix}-clear`);
 
-for (const m of MEDIUMS) {
-  const label = document.createElement("label");
-  label.className = "ms-option";
-  const cb = document.createElement("input");
-  cb.type = "checkbox";
-  cb.value = m;
-  cb.addEventListener("change", updateMediumLabel);
-  label.appendChild(cb);
-  label.appendChild(document.createTextNode(" " + m));
-  mediumOptions.appendChild(label);
+  const selected = () =>
+    [...options.querySelectorAll("input:checked")].map((c) => c.value);
+
+  function updateLabel() {
+    const sel = selected();
+    if (sel.length === 0) {
+      toggle.textContent = "Any";
+      summary.textContent = "Any medium";
+    } else if (sel.length === 1) {
+      toggle.textContent = sel[0];
+      summary.textContent = "1 selected";
+    } else {
+      toggle.textContent = `${sel.length} selected`;
+      summary.textContent = `${sel.length} selected`;
+    }
+  }
+
+  for (const m of MEDIUMS) {
+    const label = document.createElement("label");
+    label.className = "ms-option";
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.value = m;
+    cb.addEventListener("change", updateLabel);
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(" " + m));
+    options.appendChild(label);
+  }
+
+  toggle.addEventListener("click", (e) => {
+    e.stopPropagation();
+    panel.classList.toggle("hidden");
+  });
+  clear.addEventListener("click", () => {
+    options.querySelectorAll("input:checked").forEach((c) => (c.checked = false));
+    updateLabel();
+  });
+  document.addEventListener("click", (e) => {
+    if (!ms.contains(e.target)) panel.classList.add("hidden");
+  });
+
+  return { selected };
 }
+
+const genMedium = createMediumSelect("medium");
+const adaptMedium = createMediumSelect("adapt-medium");
 
 function selectedMediums() {
-  return [...mediumOptions.querySelectorAll("input:checked")].map((c) => c.value);
+  return genMedium.selected();
 }
-
-function updateMediumLabel() {
-  const sel = selectedMediums();
-  if (sel.length === 0) {
-    mediumToggle.textContent = "Any";
-    mediumSummary.textContent = "Any medium";
-  } else if (sel.length === 1) {
-    mediumToggle.textContent = sel[0];
-    mediumSummary.textContent = "1 selected";
-  } else {
-    mediumToggle.textContent = `${sel.length} selected`;
-    mediumSummary.textContent = `${sel.length} selected`;
-  }
-}
-
-mediumToggle.addEventListener("click", (e) => {
-  e.stopPropagation();
-  mediumPanel.classList.toggle("hidden");
-});
-
-mediumClear.addEventListener("click", () => {
-  mediumOptions.querySelectorAll("input:checked").forEach((c) => (c.checked = false));
-  updateMediumLabel();
-});
-
-document.addEventListener("click", (e) => {
-  if (!mediumMs.contains(e.target)) mediumPanel.classList.add("hidden");
-});
 
 function updateHint() {
   const w = parseInt(wordsInput.value, 10) || 0;
@@ -282,6 +295,96 @@ async function readSseResult(res) {
     }
   }
   return result;
+}
+
+/* ---------- Adapt ---------- */
+
+const adaptCount = document.getElementById("adapt-count");
+const adaptType = document.getElementById("adapt-type");
+const adaptLocation = document.getElementById("adapt-location");
+const adaptMarket = document.getElementById("adapt-market");
+const adaptGoBtn = document.getElementById("adapt-go");
+const adaptStatus = document.getElementById("adapt-status");
+const adaptTable = document.getElementById("adapt-results");
+const adaptBody = adaptTable.querySelector("tbody");
+
+// Map an Adapt idea into the shared "liked" shape so it saves and displays in
+// the Liked tab alongside generator ideas.
+function adaptToLikeShape(a) {
+  return {
+    word: a.baseBusiness,
+    name: a.name,
+    description: `${a.newNiche} — ${a.description}`,
+    businessType: a.businessType,
+    location: a.location,
+    medium: a.medium,
+    market: a.market,
+  };
+}
+
+function baseCell(name, desc) {
+  const td = document.createElement("td");
+  td.className = "base-biz";
+  const n = document.createElement("div");
+  n.className = "base-name";
+  n.textContent = name;
+  const d = document.createElement("div");
+  d.className = "base-desc";
+  d.textContent = desc;
+  td.appendChild(n);
+  td.appendChild(d);
+  return td;
+}
+
+function adaptRow(a) {
+  const tr = document.createElement("tr");
+  tr.appendChild(heartCell(adaptToLikeShape(a)));
+  tr.appendChild(baseCell(a.baseBusiness, a.baseDescription));
+  tr.appendChild(cell(a.newNiche, "word"));
+  tr.appendChild(cell(a.name, "name"));
+  tr.appendChild(cell(a.description, "desc"));
+  tr.appendChild(pillCell(a.businessType));
+  tr.appendChild(pillCell(a.location));
+  tr.appendChild(pillCell(a.medium));
+  tr.appendChild(pillCell(a.market));
+  return tr;
+}
+
+async function runAdapt() {
+  const count = Math.min(Math.max(parseInt(adaptCount.value, 10) || 1, 1), 10);
+  const filters = {
+    businessType: adaptType.value,
+    location: adaptLocation.value,
+    mediums: adaptMedium.selected(),
+    market: adaptMarket.value,
+  };
+
+  adaptGoBtn.disabled = true;
+  adaptStatus.textContent = "Finding real businesses to adapt…";
+  adaptTable.classList.add("hidden");
+  adaptBody.innerHTML = "";
+
+  try {
+    const res = await fetch("/api/adapt", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ count, filters }),
+    });
+    if (!res.ok || !res.body) throw new Error("Server error (" + res.status + ").");
+
+    const data = await readSseResult(res);
+    if (!data) throw new Error("No response from server.");
+    if (data.error) throw new Error(data.error);
+
+    for (const a of data.ideas) adaptBody.appendChild(adaptRow(a));
+
+    adaptTable.classList.remove("hidden");
+    adaptStatus.textContent = `${data.ideas.length} adaptations generated.`;
+  } catch (err) {
+    adaptStatus.textContent = `Error: ${err.message}`;
+  } finally {
+    adaptGoBtn.disabled = false;
+  }
 }
 
 /* ---------- Liked view ---------- */
@@ -553,9 +656,11 @@ let gameInitialized = false;
 
 function showTab(which) {
   tabGen.classList.toggle("active", which === "gen");
+  tabAdapt.classList.toggle("active", which === "adapt");
   tabGame.classList.toggle("active", which === "game");
   tabLiked.classList.toggle("active", which === "liked");
   panelGen.classList.toggle("hidden", which !== "gen");
+  panelAdapt.classList.toggle("hidden", which !== "adapt");
   panelGame.classList.toggle("hidden", which !== "game");
   panelLiked.classList.toggle("hidden", which !== "liked");
 
@@ -575,8 +680,11 @@ generateBtn.addEventListener("click", generate);
 wordsInput.addEventListener("input", updateHint);
 perWordInput.addEventListener("input", updateHint);
 tabGen.addEventListener("click", () => showTab("gen"));
+tabAdapt.addEventListener("click", () => showTab("adapt"));
 tabGame.addEventListener("click", () => showTab("game"));
 tabLiked.addEventListener("click", () => showTab("liked"));
+
+adaptGoBtn.addEventListener("click", runAdapt);
 
 newWordBtn.addEventListener("click", newWord);
 submitIdeaBtn.addEventListener("click", submitIdea);

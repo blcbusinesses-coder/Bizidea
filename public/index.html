@@ -15,6 +15,7 @@
         </p>
         <nav class="tabs">
           <button id="tab-gen" class="tab active">Generator</button>
+          <button id="tab-adapt" class="tab">Adapt</button>
           <button id="tab-game" class="tab">Game</button>
           <button id="tab-liked" class="tab">
             <span class="heart">&#9829;</span> Liked <span id="liked-count" class="badge">0</span>
@@ -84,6 +85,82 @@
               <tr>
                 <th class="heart-col"></th>
                 <th>Word</th>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Type</th>
+                <th>In person / Online</th>
+                <th>Medium</th>
+                <th>Market</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="panel-adapt" class="hidden">
+        <p class="subtitle">
+          Real companies doing well right now, reimagined for a completely
+          different niche — the “X for Y” play (e.g. Strava for basketball).
+        </p>
+        <div class="controls">
+          <div class="control">
+            <label for="adapt-count">How many</label>
+            <input type="number" id="adapt-count" min="1" max="10" value="3" />
+          </div>
+          <div class="control">
+            <label for="adapt-type">Type</label>
+            <select id="adapt-type">
+              <option>Any</option>
+              <option>Ecommerce</option>
+              <option>Service</option>
+              <option>Info</option>
+              <option>Code</option>
+            </select>
+          </div>
+          <div class="control">
+            <label for="adapt-location">In person / Online</label>
+            <select id="adapt-location">
+              <option>Any</option>
+              <option>In person</option>
+              <option>Online</option>
+            </select>
+          </div>
+          <div class="control">
+            <label>Medium</label>
+            <div class="multiselect" id="adapt-medium-ms">
+              <button type="button" class="ms-toggle" id="adapt-medium-toggle">Any</button>
+              <div class="ms-panel hidden" id="adapt-medium-panel">
+                <div class="ms-panel-head">
+                  <span id="adapt-medium-summary">Any medium</span>
+                  <button type="button" class="ms-clear" id="adapt-medium-clear">Clear</button>
+                </div>
+                <div class="ms-options" id="adapt-medium-options"></div>
+              </div>
+            </div>
+          </div>
+          <div class="control">
+            <label for="adapt-market">Market</label>
+            <select id="adapt-market">
+              <option>Any</option>
+              <option>B2B</option>
+              <option>B2D</option>
+              <option>B2C</option>
+              <option>B2AI</option>
+            </select>
+          </div>
+          <button id="adapt-go">Go</button>
+        </div>
+
+        <div id="adapt-status" class="status"></div>
+
+        <div class="table-wrap">
+          <table id="adapt-results" class="hidden">
+            <thead>
+              <tr>
+                <th class="heart-col"></th>
+                <th>Real business</th>
+                <th>New niche</th>
                 <th>Name</th>
                 <th>Description</th>
                 <th>Type</th>

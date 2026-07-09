@@ -214,6 +214,20 @@ td.name {
   white-space: nowrap;
 }
 
+td.base-biz {
+  min-width: 180px;
+}
+
+td.base-biz .base-name {
+  font-weight: 650;
+}
+
+td.base-biz .base-desc {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-top: 3px;
+}
+
 td.desc {
   min-width: 320px;
   color: #333;

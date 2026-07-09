@@ -90,30 +90,141 @@ function normalizeFilters(raw = {}) {
   };
 }
 
-function buildIdeaSchema(filters) {
-  const typeEnum = filters.businessType !== "Any" ? [filters.businessType] : [...TYPES];
-  const locationEnum = filters.location !== "Any" ? [filters.location] : [...LOCATIONS];
-  const mediumEnum = filters.mediums.length ? [...filters.mediums] : [...MEDIUMS];
-  const marketEnum = filters.market !== "Any" ? [filters.market] : [...MARKETS];
+function filterEnums(filters) {
+  return {
+    typeEnum: filters.businessType !== "Any" ? [filters.businessType] : [...TYPES],
+    locationEnum: filters.location !== "Any" ? [filters.location] : [...LOCATIONS],
+    mediumEnum: filters.mediums.length ? [...filters.mediums] : [...MEDIUMS],
+    marketEnum: filters.market !== "Any" ? [filters.market] : [...MARKETS],
+  };
+}
 
+function classificationProps(filters) {
+  const { typeEnum, locationEnum, mediumEnum, marketEnum } = filterEnums(filters);
+  return {
+    businessType: { type: "string", enum: typeEnum },
+    location: { type: "string", enum: locationEnum },
+    medium: {
+      type: "string",
+      description:
+        "The primary medium / format / business model through which the business delivers or monetizes.",
+      enum: mediumEnum,
+    },
+    market: { type: "string", enum: marketEnum },
+  };
+}
+
+function buildIdeaSchema(filters) {
   return {
     type: "object",
     properties: {
       name: { type: "string", description: "A short, catchy name for the business." },
       description: { type: "string", description: "3-4 sentences explaining the business." },
-      businessType: { type: "string", enum: typeEnum },
-      location: { type: "string", enum: locationEnum },
-      medium: {
-        type: "string",
-        description:
-          "The primary medium / format / business model through which the business delivers or monetizes.",
-        enum: mediumEnum,
-      },
-      market: { type: "string", enum: marketEnum },
+      ...classificationProps(filters),
     },
     required: ["name", "description", "businessType", "location", "medium", "market"],
     additionalProperties: false,
   };
+}
+
+function buildAdaptSchema(filters) {
+  const item = {
+    type: "object",
+    properties: {
+      baseBusiness: {
+        type: "string",
+        description:
+          "The name of a REAL, well-known company that is currently successful.",
+      },
+      baseDescription: {
+        type: "string",
+        description:
+          "1-2 sentences on what the real company actually does and why it is doing well.",
+      },
+      newNiche: {
+        type: "string",
+        description: "The different niche or vertical this adaptation targets.",
+      },
+      name: {
+        type: "string",
+        description: "A short, catchy name for the new adapted business.",
+      },
+      description: {
+        type: "string",
+        description:
+          "3-4 sentences explaining the adapted business in its new niche.",
+      },
+      ...classificationProps(filters),
+    },
+    required: [
+      "baseBusiness",
+      "baseDescription",
+      "newNiche",
+      "name",
+      "description",
+      "businessType",
+      "location",
+      "medium",
+      "market",
+    ],
+    additionalProperties: false,
+  };
+  return {
+    type: "object",
+    properties: { ideas: { type: "array", items: item } },
+    required: ["ideas"],
+    additionalProperties: false,
+  };
+}
+
+function buildAdaptPrompt(count, filters) {
+  const lines = [];
+  lines.push(
+    `Identify ${count} REAL, currently-successful companies (well-known and genuinely real — e.g. Strava, Duolingo, Notion, Whoop, Airbnb, Canva, Calm) and adapt EACH one into a clearly DIFFERENT niche or vertical, in the "X for Y" pattern (e.g. "Strava for basketball", "Duolingo for personal finance", "Whoop for physical therapy").`
+  );
+  lines.push(`For each of the ${count}, provide:`);
+  lines.push(`- baseBusiness: the real company's name.`);
+  lines.push(
+    `- baseDescription: 1-2 sentences on what it really does and why it is thriving right now.`
+  );
+  lines.push(`- newNiche: the new, clearly different niche/vertical you are targeting.`);
+  lines.push(`- name: a catchy name for the new adapted business.`);
+  lines.push(`- description: 3-4 sentences explaining the adapted business.`);
+  lines.push(
+    `- the business type, whether it is in person or online, the medium, and the target market for the NEW business.`
+  );
+
+  const hard = [];
+  if (filters.businessType !== "Any")
+    hard.push(`- Every NEW business MUST be of type "${filters.businessType}".`);
+  if (filters.location !== "Any")
+    hard.push(`- Every NEW business MUST be "${filters.location}".`);
+  if (filters.mediums.length === 1)
+    hard.push(`- Every NEW business MUST use the "${filters.mediums[0]}" medium.`);
+  else if (filters.mediums.length > 1)
+    hard.push(
+      `- Every NEW business's medium MUST be one of: ${filters.mediums
+        .map((m) => `"${m}"`)
+        .join(", ")}.`
+    );
+  if (filters.market !== "Any")
+    hard.push(`- Every NEW business MUST target the "${filters.market}" market.`);
+  if (hard.length) {
+    lines.push(`Hard constraints — follow ALL of these strictly:`);
+    lines.push(...hard);
+  }
+
+  lines.push(
+    `CRITICAL: Only use REAL companies you are confident actually exist and are successful today. Do NOT invent or fabricate companies. Make each target niche clearly different from the original company's market.`
+  );
+  lines.push(`Reference: business type is one of Ecommerce, Service, Info, Code.`);
+  lines.push(
+    `Medium is the primary delivery/monetization model. Choose the single best fit from: ${MEDIUMS.join(
+      ", "
+    )}.`
+  );
+  lines.push(`Market: B2B (business), B2D (developer), B2C (consumer), B2AI (AI).`);
+  return lines.join("\n");
 }
 
 function buildSchema(filters) {
@@ -236,6 +347,47 @@ app.post("/api/generate", async (req, res) => {
   } catch (err) {
     console.error(err);
     send({ error: err.message || "Generation failed." });
+  } finally {
+    clearInterval(heartbeat);
+    res.end();
+  }
+});
+
+/* ---------- Adapt (real businesses → new niche) ---------- */
+
+app.post("/api/adapt", async (req, res) => {
+  const count = clamp(req.body.count, 1, 10, 3);
+  const filters = normalizeFilters(req.body.filters);
+
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+  const heartbeat = setInterval(() => res.write(": keep-alive\n\n"), 5000);
+  const send = (payload) =>
+    res.write(`event: result\ndata: ${JSON.stringify(payload)}\n\n`);
+
+  try {
+    const stream = client.messages.stream({
+      model: "claude-sonnet-4-6",
+      max_tokens: Math.min(32000, 4000 + count * 1000),
+      thinking: { type: "adaptive" },
+      output_config: {
+        effort: "low",
+        format: { type: "json_schema", schema: buildAdaptSchema(filters) },
+      },
+      messages: [{ role: "user", content: buildAdaptPrompt(count, filters) }],
+    });
+
+    const message = await stream.finalMessage();
+    const block = message.content.find((b) => b.type === "text");
+    const parsed = JSON.parse(block.text);
+    send({ ideas: parsed.ideas || [] });
+  } catch (err) {
+    console.error(err);
+    send({ error: err.message || "Adaptation failed." });
   } finally {
     clearInterval(heartbeat);
     res.end();
