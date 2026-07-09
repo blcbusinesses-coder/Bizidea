@@ -218,6 +218,55 @@ app.get("/api/game/word", (req, res) => {
   res.json({ word: pickRandomWord() });
 });
 
+const wordInfoSchema = {
+  type: "object",
+  properties: {
+    synonyms: {
+      type: "array",
+      items: { type: "string" },
+      description: "4-8 synonyms or closely related words.",
+    },
+    meanings: {
+      type: "array",
+      items: { type: "string" },
+      description:
+        "3-6 short meanings and interpretations of the word, each a brief phrase.",
+    },
+  },
+  required: ["synonyms", "meanings"],
+  additionalProperties: false,
+};
+
+app.post("/api/game/wordinfo", async (req, res) => {
+  try {
+    const word = String(req.body.word || "").slice(0, 100).trim();
+    if (!word) return res.status(400).json({ error: "No word provided." });
+
+    const message = await client.messages.create({
+      model: "claude-opus-4-7",
+      max_tokens: 1200,
+      output_config: {
+        effort: "low",
+        format: { type: "json_schema", schema: wordInfoSchema },
+      },
+      messages: [
+        {
+          role: "user",
+          content: `For the word "${word}", provide two things:
+- 4-8 synonyms or closely related words.
+- 3-6 short meanings and interpretations: include its literal definition(s) plus a couple of evocative associations or metaphorical angles that could spark business ideas. Keep each one to a short phrase or single sentence.`,
+        },
+      ],
+    });
+
+    const block = message.content.find((b) => b.type === "text");
+    res.json(JSON.parse(block.text));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Could not load word info." });
+  }
+});
+
 const rateSchema = {
   type: "object",
   properties: {

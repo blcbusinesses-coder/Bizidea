@@ -295,8 +295,81 @@ const savedCount = document.getElementById("saved-count");
 const savedEmpty = document.getElementById("saved-empty");
 const savedList = document.getElementById("saved-list");
 
+const synToggle = document.getElementById("syn-toggle");
+const meanToggle = document.getElementById("mean-toggle");
+const synPanel = document.getElementById("syn-panel");
+const meanPanel = document.getElementById("mean-panel");
+
 let currentWord = "";
 let lastRating = null;
+let wordInfo = null;
+let wordInfoPromise = null;
+
+function resetWordInfo() {
+  wordInfo = null;
+  wordInfoPromise = null;
+  for (const [toggle, panel] of [
+    [synToggle, synPanel],
+    [meanToggle, meanPanel],
+  ]) {
+    toggle.classList.remove("open");
+    panel.classList.add("hidden");
+    panel.innerHTML = "";
+  }
+}
+
+function ensureWordInfo() {
+  if (wordInfo) return Promise.resolve(wordInfo);
+  if (!wordInfoPromise) {
+    wordInfoPromise = fetch("/api/game/wordinfo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ word: currentWord }),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.error) throw new Error(d.error);
+        wordInfo = d;
+        return d;
+      });
+  }
+  return wordInfoPromise;
+}
+
+function renderWordInfo() {
+  if (!wordInfo) return;
+  synPanel.innerHTML = (wordInfo.synonyms || [])
+    .map((s) => `<span class="info-pill">${escapeHtml(s)}</span>`)
+    .join("");
+  meanPanel.innerHTML =
+    "<ul>" +
+    (wordInfo.meanings || [])
+      .map((m) => `<li>${escapeHtml(m)}</li>`)
+      .join("") +
+    "</ul>";
+}
+
+async function toggleWordInfo(toggle, panel) {
+  const opening = panel.classList.contains("hidden");
+  if (!opening) {
+    panel.classList.add("hidden");
+    toggle.classList.remove("open");
+    return;
+  }
+  panel.classList.remove("hidden");
+  toggle.classList.add("open");
+  if (!wordInfo) {
+    panel.innerHTML = '<span class="info-loading">Loading…</span>';
+    try {
+      await ensureWordInfo();
+    } catch {
+      panel.innerHTML = '<span class="info-loading">Couldn’t load. Try again.</span>';
+      wordInfoPromise = null;
+      return;
+    }
+  }
+  renderWordInfo();
+}
 
 async function newWord() {
   newWordBtn.disabled = true;
@@ -304,6 +377,7 @@ async function newWord() {
   gameResult.classList.add("hidden");
   gameIdea.value = "";
   lastRating = null;
+  resetWordInfo();
   try {
     const res = await fetch("/api/game/word");
     const data = await res.json();
@@ -471,6 +545,8 @@ tabLiked.addEventListener("click", () => showTab("liked"));
 newWordBtn.addEventListener("click", newWord);
 submitIdeaBtn.addEventListener("click", submitIdea);
 saveRoundBtn.addEventListener("click", saveRound);
+synToggle.addEventListener("click", () => toggleWordInfo(synToggle, synPanel));
+meanToggle.addEventListener("click", () => toggleWordInfo(meanToggle, meanPanel));
 
 updateHint();
 refreshLikedCount();
